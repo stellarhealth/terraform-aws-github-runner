@@ -104,8 +104,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ needs.sync-fork.upstream_tag }} # Incremental tag
-          release_name: "Release ${{ needs.sync-fork.upstream_tag }}"
+          tag_name: ${{ needs.sync-fork.outputs.upstream_tag }} # Incremental tag
+          release_name: "Release ${{ needs.sync-fork.outputs.upstream_tag }}"
           body: |
             This release contains the latest changes synced from the upstream repository.
           draft: false
@@ -120,9 +120,9 @@ jobs:
     steps:
       - name: Download zips
         run: |
-          wget "https://github.com/philips-labs/terraform-aws-github-runner/releases/download/${{ needs.sync-fork.upstream_tag }}/runners.zip"
-          wget "https://github.com/philips-labs/terraform-aws-github-runner/releases/download/${{ needs.sync-fork.upstream_tag }}/webhook.zip"
-          wget "https://github.com/philips-labs/terraform-aws-github-runner/releases/download/${{ needs.sync-fork.upstream_tag }}/runner-binaries-syncer.zip"
+          wget "https://github.com/philips-labs/terraform-aws-github-runner/releases/download/${{ needs.sync-fork.outputs.upstream_tag }}/runners.zip"
+          wget "https://github.com/philips-labs/terraform-aws-github-runner/releases/download/${{ needs.sync-fork.outputs.upstream_tag }}/webhook.zip"
+          wget "https://github.com/philips-labs/terraform-aws-github-runner/releases/download/${{ needs.sync-fork.outputs.upstream_tag }}/runner-binaries-syncer.zip"
       - name: Configure AWS credentials via OIDC
         id: oidc-creds
         uses: aws-actions/configure-aws-credentials@v4
@@ -142,10 +142,10 @@ jobs:
       - name: Upload zips to S3
         run: |
           # mgmt-infra-dev
-          aws s3 cp runners.zip s3://mgmt-infra-dev-aws-gha-zips/${{ needs.sync-fork.upstream_tag }}/runners.zip
-          aws s3 cp runners.zip s3://mgmt-infra-dev-aws-gha-zips/${{ needs.sync-fork.upstream_tag }}/webhook.zip
-          aws s3 cp runners.zip s3://mgmt-infra-dev-aws-gha-zips/${{ needs.sync-fork.upstream_tag }}/runner-binaries-syncer.zip
+          aws s3 cp runners.zip s3://mgmt-infra-dev-aws-gha-zips/${{ needs.sync-fork.outputs.upstream_tag }}/runners.zip
+          aws s3 cp runners.zip s3://mgmt-infra-dev-aws-gha-zips/${{ needs.sync-fork.outputs.upstream_tag }}/webhook.zip
+          aws s3 cp runners.zip s3://mgmt-infra-dev-aws-gha-zips/${{ needs.sync-fork.outputs.upstream_tag }}/runner-binaries-syncer.zip
           # mgmt-infra-prod
-          aws s3 cp runners.zip s3://mgmt-infra-prod-aws-gha-zips/${{ needs.sync-fork.upstream_tag }}/runners.zip
-          aws s3 cp runners.zip s3://mgmt-infra-prod-aws-gha-zips/${{ needs.sync-fork.upstream_tag }}/webhook.zip
-          aws s3 cp runners.zip s3://mgmt-infra-prod-aws-gha-zips/${{ needs.sync-fork.upstream_tag }}/runner-binaries-syncer.zip   
+          aws s3 cp runners.zip s3://mgmt-infra-prod-aws-gha-zips/${{ needs.sync-fork.outputs.upstream_tag }}/runners.zip
+          aws s3 cp runners.zip s3://mgmt-infra-prod-aws-gha-zips/${{ needs.sync-fork.outputs.upstream_tag }}/webhook.zip
+          aws s3 cp runners.zip s3://mgmt-infra-prod-aws-gha-zips/${{ needs.sync-fork.outputs.upstream_tag }}/runner-binaries-syncer.zip
