@@ -33,6 +33,7 @@ jobs:
 
           echo "Latest upstream tag: $LATEST_TAG"
           echo "upstream_tag=$LATEST_TAG" >> $GITHUB_ENV
+          echo "upstream_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
       - name: Compare Image Tags
         id: compare-tags
         shell: bash
