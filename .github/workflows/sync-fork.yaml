@@ -29,8 +29,8 @@ jobs:
         run: |
           # Fetch the latest release using GitHub API
           LATEST_TAG=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-          https://api.github.com/repos/philips-labs/releases/latest | jq -r '.tag_name')
-          
+          https://api.github.com/repos/philips-labs/terraform-aws-github-runner/releases/latest | jq -r '.tag_name')
+
           echo "Latest upstream tag: $LATEST_TAG"
           echo "upstream_tag=$LATEST_TAG" >> $GITHUB_ENV
       - name: Compare Image Tags
