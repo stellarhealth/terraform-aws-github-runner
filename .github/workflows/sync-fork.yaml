@@ -8,7 +8,7 @@ jobs:
     name: Sync Fork
     runs-on: ubuntu-latest
     outputs:
-      upstream_tag: ${{ steps.philips_tag.upstream_tag}}
+      upstream_tag: ${{ steps.philips_tag.outputs.upstream_tag}}
 
     steps:
       - name: Checkout forked repository
