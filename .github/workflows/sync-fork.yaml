@@ -9,7 +9,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       upstream_tag: ${{ steps.philips_tag.outputs.upstream_tag}}
-      upstream_tag: ${{ steps.compare-tags.outputs.duplicate_tag}}
 
     steps:
       - name: Checkout forked repository
@@ -25,6 +24,7 @@ jobs:
           
           echo "Latest tag on the forked branch: $LATEST_TAG"
           echo "fork_tag=$LATEST_TAG" >> $GITHUB_ENV
+
       - name: Upstream tag
         id: philips_tag
         run: |
@@ -39,8 +39,9 @@ jobs:
         id: compare-tags
         shell: bash
         run: |
-          echo "fork_tag=$fork_tag"
-          echo "upstream_tag=$upstream_tag"
+          echo "fork_tag=${{ steps.fork_tag.outputs.fork_tag }}" >> $GITHUB_ENV
+          echo "upstream_tag=${{ steps.philips_tag.outputs.upstream_tag }}" >> $GITHUB_ENV
+
           if [ "$fork_tag" == "$upstream_tag" ]; then
             echo "### :info: Fork is already synced, ending workflow." >> $GITHUB_STEP_SUMMARY
             echo "Current forked tag matches the upstream tag. QA Tag: $fork_tag, PROD Tag: $upstream_tag " >> $GITHUB_STEP_SUMMARY
