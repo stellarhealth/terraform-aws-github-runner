@@ -38,12 +38,12 @@ jobs:
         id: compare-tags
         shell: bash
         run: |
-          echo "fork_tag=${{ steps.fork_tag.outputs.fork_tag }}" >> $GITHUB_ENV
-          echo "upstream_tag=${{ steps.philips_tag.outputs.upstream_tag }}" >> $GITHUB_ENV
+          echo "fork_tag=${{ steps.fork_tag.outputs.fork_tag }}"
+          echo "upstream_tag=${{ steps.philips_tag.outputs.upstream_tag }}"
 
-          if [ "$fork_tag" == "$upstream_tag" ]; then
+          if [ ${{ steps.fork_tag.outputs.fork_tag }}" == ${{ steps.philips_tag.outputs.upstream_tag }}" ]; then
             echo "### :info: Fork is already synced, ending workflow." >> $GITHUB_STEP_SUMMARY
-            echo "Current forked tag matches the upstream tag. QA Tag: $fork_tag, PROD Tag: $upstream_tag " >> $GITHUB_STEP_SUMMARY
+            echo "Current forked tag matches the upstream tag. Fork Tag: ${{ steps.fork_tag.outputs.fork_tag }}, Upstream Tag: ${{ steps.philips_tag.outputs.upstream_tag }} " >> $GITHUB_STEP_SUMMARY
             echo "duplicate_tag=true" >> $GITHUB_OUTPUT
           else
             echo "duplicate_tag=false" >> $GITHUB_OUTPUT
