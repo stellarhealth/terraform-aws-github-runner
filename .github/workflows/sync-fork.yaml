@@ -9,6 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       upstream_tag: ${{ steps.philips_tag.outputs.upstream_tag}}
+      upstream_tag: ${{ steps.compare-tags.outputs.duplicate_tag}}
 
     steps:
       - name: Checkout forked repository
