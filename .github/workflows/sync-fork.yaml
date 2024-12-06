@@ -130,7 +130,7 @@ jobs:
         with:
           aws-region: us-east-1
           role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID_ORG }}:role/external/github_actions
-          role-session-name: tmchanges_assume_github_actions_role
+          role-session-name: syncfork_assume_github_actions_role
           output-credentials: true
 
       - name: Assume AWS Credentials
@@ -139,6 +139,7 @@ jobs:
           aws-region: us-east-1
           aws-access-key-id: ${{ steps.oidc-creds.outputs.aws-access-key-id }}
           aws-secret-access-key: ${{ steps.oidc-creds.outputs.aws-secret-access-key }}
+          aws-session-token: ${{ steps.oidc-creds.outputs.aws-session-token }}
 
       - name: Upload zips to S3
         run: |
