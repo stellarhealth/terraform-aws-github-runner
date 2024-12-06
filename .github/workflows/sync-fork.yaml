@@ -86,6 +86,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.WRITE_RELEASE_NOTES_TOKEN }}
       - name: Add upstream repository
+        if: ${{ steps.compare-tags.outputs.duplicate_tag == 'false' }}
         run: |
           git remote add upstream https://github.com/philips-labs/terraform-aws-github-runner.git
           git fetch upstream
