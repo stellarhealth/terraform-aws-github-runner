@@ -23,7 +23,7 @@ jobs:
           LATEST_TAG=$(git describe --tags --abbrev=0)
           
           echo "Latest tag on the forked branch: $LATEST_TAG"
-          echo "fork_tag=$LATEST_TAG" >> $GITHUB_ENV
+          echo "fork_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
 
       - name: Upstream tag
         id: philips_tag
@@ -33,7 +33,6 @@ jobs:
           https://api.github.com/repos/philips-labs/terraform-aws-github-runner/releases/latest | jq -r '.tag_name')
 
           echo "Latest upstream tag: $LATEST_TAG"
-          echo "upstream_tag=$LATEST_TAG" >> $GITHUB_ENV
           echo "upstream_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
       - name: Compare Image Tags
         id: compare-tags
