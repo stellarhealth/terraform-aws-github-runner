@@ -48,8 +48,9 @@ jobs:
           else
             echo "duplicate_tag=false" >> $GITHUB_OUTPUT
           fi
+          echo $duplicate_tag
       - name: Cancel workflow if duplicate tags
-        if: ${{ steps.compare-tags.outputs.duplicate_tags == 'true' }}
+        if: ${{ steps.compare-tags.outputs.duplicate_tag == 'true' }}
         uses: actions/github-script@v6
         with:
           script: |
