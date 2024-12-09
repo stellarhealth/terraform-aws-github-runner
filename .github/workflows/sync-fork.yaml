@@ -10,7 +10,9 @@ jobs:
     outputs:
       upstream_tag: ${{ steps.philips_tag.outputs.upstream_tag}}
     permissions:
+      id-token: write
       contents: write
+      checks: read
     steps:
       - name: Checkout forked repository
         uses: actions/checkout@v4
@@ -134,6 +136,7 @@ jobs:
           wget https://github.com/philips-labs/terraform-aws-github-runner/releases/download/${{ needs.sync-fork.outputs.upstream_tag }}/runners.zip
           wget https://github.com/philips-labs/terraform-aws-github-runner/releases/download/${{ needs.sync-fork.outputs.upstream_tag }}/webhook.zip
           wget https://github.com/philips-labs/terraform-aws-github-runner/releases/download/${{ needs.sync-fork.outputs.upstream_tag }}/runner-binaries-syncer.zip
+
       - name: Configure AWS credentials via OIDC
         id: oidc-creds
         uses: aws-actions/configure-aws-credentials@v4
