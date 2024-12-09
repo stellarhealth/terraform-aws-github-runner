@@ -52,49 +52,52 @@ jobs:
           fi
           echo $duplicate_tag
 
-      - name: Cancel if in-sync, otherwise sync-fork
+      - name: Cancel if in-sync
+        if: ${{ steps.compare-tags.outputs.duplicate_tag == 'true' }}
         uses: actions/github-script@v6
         shell: bash
         with:
           script: |
-            if [[ "${{ steps.compare-tags.outputs.duplicate_tag }}" = "true" ]]; then
-              const https = require('https');
-              const options = {
-                hostname: 'api.github.com',
-                path: `/repos/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}/cancel`,
-                headers: {
-                  'Authorization': `token ${process.env.GITHUB_TOKEN}`,
-                  'Content-Type': 'application/json',
-                  'User-Agent': 'actions/cancel-action'
-                },
-                method: 'POST'
-              }
-              const req = https.request(options, (res) => {
-                res.on('data', (data) => {
-                  if (res.statusCode != 202) {
-                    let parsed = JSON.parse(data)
-                    console.log(`Error: ${parsed.message}`)
-                    process.exit(1)
-                  } else {
-                    console.log('Cancelled successfully.')
-                    process.exit(0)
-                  }
-                })
+            const https = require('https');
+            const options = {
+              hostname: 'api.github.com',
+              path: `/repos/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}/cancel`,
+              headers: {
+                'Authorization': `token ${process.env.GITHUB_TOKEN}`,
+                'Content-Type': 'application/json',
+                'User-Agent': 'actions/cancel-action'
+              },
+              method: 'POST'
+            }
+            const req = https.request(options, (res) => {
+              res.on('data', (data) => {
+                if (res.statusCode != 202) {
+                  let parsed = JSON.parse(data)
+                  console.log(`Error: ${parsed.message}`)
+                  process.exit(1)
+                } else {
+                  console.log('Cancelled successfully.')
+                  process.exit(0)
+                }
               })
-              req.on('error', (error) => {
-                console.log(`HTTP Error: ${error}`)
-                process.exit(1)
-              })
-              req.end();
-            else
-              git remote add upstream https://github.com/philips-labs/terraform-aws-github-runner.git
-              git fetch upstream
-              git checkout main
-              git merge upstream/main
-              git push origin main
-            fi
+            })
+            req.on('error', (error) => {
+              console.log(`HTTP Error: ${error}`)
+              process.exit(1)
+            })
+            req.end();
         env:
           GITHUB_TOKEN: ${{ secrets.WRITE_RELEASE_NOTES_TOKEN }}
+
+      - name: Sync-fork
+        if: ${{ steps.compare-tags.outputs.duplicate_tag != 'true' }}
+        shell: bash
+        run: |
+          git remote add upstream https://github.com/philips-labs/terraform-aws-github-runner.git
+          git fetch upstream
+          git checkout main
+          git merge upstream/main
+          git push origin main
 
   create-release:
     name: Create Release
