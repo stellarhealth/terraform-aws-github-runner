@@ -97,6 +97,8 @@ jobs:
           git checkout main
           git merge upstream/main
           git push origin main
+        env:
+          GITHUB_TOKEN: ${{ secrets.WRITE_RELEASE_NOTES_TOKEN }}
 
   create-release:
     name: Create Release
