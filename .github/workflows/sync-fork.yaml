@@ -92,13 +92,13 @@ jobs:
         if: ${{ steps.compare-tags.outputs.duplicate_tag != 'true' }}
         shell: bash
         run: |
+          git config --global user.name "GHA Sync Fork Bot"
+          git config --global user.email "devops+gha-sync-fork@stellar.health"
           git remote add upstream https://github.com/philips-labs/terraform-aws-github-runner.git
           git fetch upstream
           git checkout main
           git merge upstream/main
           git push origin main
-        env:
-          GITHUB_TOKEN: ${{ secrets.WRITE_RELEASE_NOTES_TOKEN }}
 
   create-release:
     name: Create Release
