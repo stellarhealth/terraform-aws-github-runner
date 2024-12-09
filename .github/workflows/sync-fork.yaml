@@ -43,7 +43,7 @@ jobs:
           echo "fork_tag=${{ steps.fork_tag.outputs.fork_tag }}"
           echo "upstream_tag=${{ steps.philips_tag.outputs.upstream_tag }}"
 
-          if [ "${{ steps.fork_tag.outputs.fork_tag }}" == "${{ steps.philips_tag.outputs.upstream_tag }}" ]; then
+          if [[ "${{ steps.fork_tag.outputs.fork_tag }}" == "${{ steps.philips_tag.outputs.upstream_tag }}" ]]; then
             echo "### :info: Fork is already synced, ending workflow." >> $GITHUB_STEP_SUMMARY
             echo "Current forked tag matches the upstream tag. Fork Tag: ${{ steps.fork_tag.outputs.fork_tag }}, Upstream Tag: ${{ steps.philips_tag.outputs.upstream_tag }} " >> $GITHUB_STEP_SUMMARY
             echo "duplicate_tag=true" >> $GITHUB_OUTPUT
