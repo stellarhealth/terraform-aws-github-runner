@@ -54,6 +54,7 @@ jobs:
 
       - name: Cancel if in-sync, otherwise sync-fork
         uses: actions/github-script@v6
+        shell: bash
         with:
           script: |
             if [[ "${{ steps.compare-tags.outputs.duplicate_tag }}" = "true" ]]; then
