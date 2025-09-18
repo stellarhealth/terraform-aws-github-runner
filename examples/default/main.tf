@@ -84,9 +84,6 @@ module "runners" {
   delay_webhook_event   = 5
   runners_maximum_count = 2
 
-  # set up a fifo queue to remain order
-  enable_fifo_build_queue = true
-
   # override scaling down
   scale_down_schedule_expression = "cron(* * * * ? *)"
 
@@ -95,12 +92,10 @@ module "runners" {
   # prefix GitHub runners with the environment name
   runner_name_prefix = "${local.environment}_"
 
-  # webhook supports two modes, either direct or via the eventbridge, uncomment to enable eventbridge
-  # eventbridge = {
-  #   enable = true
-  #   # adjust the allow events to only allow specific events, like workflow_job
-  #   # allowed_events = ['workflow_job']
-  # }
+  # by default eventbridge is used, see multi-runner example. Here we disable the eventbridge
+  eventbridge = {
+    enable = false
+  }
 
   # Enable debug logging for the lambda functions
   # log_level = "debug"
@@ -146,6 +141,7 @@ module "runners" {
 
   # enable CMK instead of aws managed key for encryptions
   # kms_key_arn = aws_kms_key.github.arn
+
 }
 
 module "webhook_github_app" {

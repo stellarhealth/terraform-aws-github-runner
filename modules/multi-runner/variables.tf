@@ -1,11 +1,40 @@
 variable "github_app" {
-  description = "GitHub app parameters, see your github app. Ensure the key is the base64-encoded `.pem` file (the output of `base64 app.private-key.pem`, not the content of `private-key.pem`)."
+  description = <<EOF
+  GitHub app parameters, see your github app.
+  You can optionally create the SSM parameters yourself and provide the ARN and name here, through the `*_ssm` attributes.
+  If you chose to provide the configuration values directly here,
+  please ensure the key is the base64-encoded `.pem` file (the output of `base64 app.private-key.pem`, not the content of `private-key.pem`).
+  Note: the provided SSM parameters arn and name have a precedence over the actual value (i.e `key_base64_ssm` has a precedence over `key_base64` etc).
+  EOF
   type = object({
-    key_base64     = string
-    id             = string
-    webhook_secret = string
+    key_base64 = optional(string)
+    key_base64_ssm = optional(object({
+      arn  = string
+      name = string
+    }))
+    id = optional(string)
+    id_ssm = optional(object({
+      arn  = string
+      name = string
+    }))
+    webhook_secret = optional(string)
+    webhook_secret_ssm = optional(object({
+      arn  = string
+      name = string
+    }))
   })
+
+  validation {
+    condition     = (var.github_app.key_base64 != null || var.github_app.key_base64_ssm != null) && (var.github_app.id != null || var.github_app.id_ssm != null) && (var.github_app.webhook_secret != null || var.github_app.webhook_secret_ssm != null)
+    error_message = <<EOF
+     You must set all of the following parameters, choosing one option from each pair:
+      - `key_base64` or `key_base64_ssm`
+      - `id` or `id_ssm`
+      - `webhook_secret` or `webhook_secret_ssm`
+    EOF
+  }
 }
+
 
 variable "prefix" {
   description = "The prefix used for naming resources"
@@ -36,6 +65,13 @@ variable "multi_runner_config" {
         http_tokens                 = "required"
         http_put_response_hop_limit = 1
       })
+      ami = optional(object({
+        filter               = optional(map(list(string)), { state = ["available"] })
+        owners               = optional(list(string), ["amazon"])
+        id_ssm_parameter_arn = optional(string, null)
+        kms_key_arn          = optional(string, null)
+      }), null) # Defaults to null, in which case the module falls back to individual AMI variables (deprecated)
+      # Deprecated: Use ami object instead
       ami_filter                              = optional(map(list(string)), { state = ["available"] })
       ami_owners                              = optional(list(string), ["amazon"])
       ami_id_ssm_parameter_name               = optional(string, null)
@@ -78,6 +114,8 @@ variable "multi_runner_config" {
       cloudwatch_config                       = optional(string, null)
       userdata_pre_install                    = optional(string, "")
       userdata_post_install                   = optional(string, "")
+      runner_hook_job_started                 = optional(string, "")
+      runner_hook_job_completed               = optional(string, "")
       runner_ec2_tags                         = optional(map(string), {})
       runner_iam_role_managed_policy_arns     = optional(list(string), [])
       vpc_id                                  = optional(string, null)
@@ -126,7 +164,6 @@ variable "multi_runner_config" {
       exactMatch    = optional(bool, false)
       priority      = optional(number, 999)
     })
-    fifo = optional(bool, false)
     redrive_build_queue = optional(object({
       enabled         = bool
       maxReceiveCount = number
@@ -141,6 +178,7 @@ variable "multi_runner_config" {
         runner_os: "The EC2 Operating System type to use for action runner instances (linux,windows)."
         runner_architecture: "The platform architecture of the runner instance_type."
         runner_metadata_options: "(Optional) Metadata options for the ec2 runner instances."
+        ami: "(Optional) AMI configuration for the action runner instances. This object allows you to specify all AMI-related settings in one place."
         ami_filter: "(Optional) List of maps used to create the AMI filter for the action runner AMI. By default amazon linux 2 is used."
         ami_owners: "(Optional) The list of owners used to select the AMI of action runner instances."
         create_service_linked_role_spot: (Optional) create the serviced linked role for spot instances that is required by the scale-up lambda.
@@ -180,6 +218,8 @@ variable "multi_runner_config" {
         cloudwatch_config: "(optional) Replaces the module default cloudwatch log config. See https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Agent-Configuration-File-Details.html for details."
         userdata_pre_install: "Script to be ran before the GitHub Actions runner is installed on the EC2 instances"
         userdata_post_install: "Script to be ran after the GitHub Actions runner is installed on the EC2 instances"
+        runner_hook_job_started: "Script to be ran in the runner environment at the beginning of every job"
+        runner_hook_job_completed: "Script to be ran in the runner environment at the end of every job"
         runner_ec2_tags: "Map of tags that will be added to the launch template instance tag specifications."
         runner_iam_role_managed_policy_arns: "Attach AWS or customer-managed IAM policies (by ARN) to the runner IAM role"
         vpc_id: "The VPC for security groups of the action runners. If not set uses the value of `var.vpc_id`."
@@ -195,7 +235,6 @@ variable "multi_runner_config" {
         exactMatch: "If set to true all labels in the workflow job must match the GitHub labels (os, architecture and `self-hosted`). When false if __any__ workflow label matches it will trigger the webhook."
         priority: "If set it defines the priority of the matcher, the matcher with the lowest priority will be evaluated first. Default is 999, allowed values 0-999."
       }
-      fifo: "Enable a FIFO queue to remain the order of events received by the webhook. Suggest to set to true for repo level runners."
       redrive_build_queue: "Set options to attach (optional) a dead letter queue to the build queue, the queue between the webhook and the scale up lambda. You have the following options. 1. Disable by setting `enabled` to false. 2. Enable by setting `enabled` to `true`, `maxReceiveCount` to a number of max retries."
     }
   EOT
@@ -321,7 +360,7 @@ variable "log_level" {
 variable "lambda_runtime" {
   description = "AWS Lambda runtime."
   type        = string
-  default     = "nodejs20.x"
+  default     = "nodejs22.x"
 }
 
 variable "lambda_architecture" {
@@ -529,7 +568,7 @@ variable "key_name" {
 }
 
 variable "ghes_url" {
-  description = "GitHub Enterprise Server URL. Example: https://github.internal.co - DO NOT SET IF USING PUBLIC GITHUB"
+  description = "GitHub Enterprise Server URL. Example: https://github.internal.co - DO NOT SET IF USING PUBLIC GITHUB. .However if you are using Github Enterprise Cloud with data-residency (ghe.com), set the endpoint here. Example - https://companyname.ghe.com|"
   type        = string
   default     = null
 }
@@ -616,8 +655,7 @@ variable "instance_termination_watcher" {
   EOF
 
   type = object({
-    enable         = optional(bool, false)
-    enable_metrics = optional(string, null) # deprecated
+    enable = optional(bool, false)
     features = optional(object({
       enable_spot_termination_handler              = optional(bool, true)
       enable_spot_termination_notification_watcher = optional(bool, true)
@@ -629,11 +667,6 @@ variable "instance_termination_watcher" {
     zip               = optional(string, null)
   })
   default = {}
-
-  validation {
-    condition     = var.instance_termination_watcher.enable_metrics == null
-    error_message = "The feature `instance_termination_watcher` is deprecated and will be removed in a future release. Please use the `termination_watcher` variable instead."
-  }
 }
 
 variable "lambda_tags" {
@@ -669,9 +702,15 @@ variable "metrics" {
 variable "eventbridge" {
   description = "Enable the use of EventBridge by the module. By enabling this feature events will be put on the EventBridge by the webhook instead of directly dispatching to queues for scaling."
   type = object({
-    enable        = optional(bool, false)
+    enable        = optional(bool, true)
     accept_events = optional(list(string), [])
   })
 
   default = {}
+}
+
+variable "user_agent" {
+  description = "User agent used for API calls by lambda functions."
+  type        = string
+  default     = "github-aws-runners"
 }
