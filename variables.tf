@@ -9,7 +9,7 @@ variable "vpc_id" {
 }
 
 variable "subnet_ids" {
-  description = "List of subnets in which the action runner instances will be launched. The subnets need to exist in the configured VPC (`vpc_id`), and must reside in different availability zones (see https://github.com/philips-labs/terraform-aws-github-runner/issues/2904)"
+  description = "List of subnets in which the action runner instances will be launched. The subnets need to exist in the configured VPC (`vpc_id`), and must reside in different availability zones (see https://github.com/github-aws-runners/terraform-aws-github-runner/issues/2904)"
   type        = list(string)
 }
 
@@ -32,12 +32,39 @@ variable "enable_organization_runners" {
 }
 
 variable "github_app" {
-  description = "GitHub app parameters, see your github app. Ensure the key is the base64-encoded `.pem` file (the output of `base64 app.private-key.pem`, not the content of `private-key.pem`)."
+  description = <<EOF
+  GitHub app parameters, see your github app.
+  You can optionally create the SSM parameters yourself and provide the ARN and name here, through the `*_ssm` attributes.
+  If you chose to provide the configuration values directly here,
+  please ensure the key is the base64-encoded `.pem` file (the output of `base64 app.private-key.pem`, not the content of `private-key.pem`).
+  Note: the provided SSM parameters arn and name have a precedence over the actual value (i.e `key_base64_ssm` has a precedence over `key_base64` etc).
+  EOF
   type = object({
-    key_base64     = string
-    id             = string
-    webhook_secret = string
+    key_base64 = optional(string)
+    key_base64_ssm = optional(object({
+      arn  = string
+      name = string
+    }))
+    id = optional(string)
+    id_ssm = optional(object({
+      arn  = string
+      name = string
+    }))
+    webhook_secret = optional(string)
+    webhook_secret_ssm = optional(object({
+      arn  = string
+      name = string
+    }))
   })
+  validation {
+    condition     = (var.github_app.key_base64 != null || var.github_app.key_base64_ssm != null) && (var.github_app.id != null || var.github_app.id_ssm != null) && (var.github_app.webhook_secret != null || var.github_app.webhook_secret_ssm != null)
+    error_message = <<EOF
+     You must set all of the following parameters, choosing one option from each pair:
+      - `key_base64` or `key_base64_ssm`
+      - `id` or `id_ssm`
+      - `webhook_secret` or `webhook_secret_ssm`
+    EOF
+  }
 }
 
 variable "scale_down_schedule_expression" {
@@ -280,6 +307,18 @@ variable "userdata_post_install" {
   description = "Script to be ran after the GitHub Actions runner is installed on the EC2 instances"
 }
 
+variable "runner_hook_job_started" {
+  type        = string
+  default     = ""
+  description = "Script to be ran in the runner environment at the beginning of every job"
+}
+
+variable "runner_hook_job_completed" {
+  type        = string
+  default     = ""
+  description = "Script to be ran in the runner environment at the end of every job"
+}
+
 variable "idle_config" {
   description = "List of time periods, defined as a cron expression, to keep a minimum amount of runners active instead of scaling down to 0. By defining this list you can ensure that in time periods that match the cron expression within 5 seconds a runner is kept idle."
   type = list(object({
@@ -327,31 +366,53 @@ variable "block_device_mappings" {
   }]
 }
 
+variable "ami" {
+  description = <<EOT
+AMI configuration for the action runner instances. This object allows you to specify all AMI-related settings in one place.
+
+Parameters:
+- `filter`: Map of lists to filter AMIs by various criteria (e.g., { name = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-*"], state = ["available"] })
+- `owners`: List of AMI owners to limit the search. Common values: ["amazon"], ["self"], or specific AWS account IDs
+- `id_ssm_parameter_name`: Name of an SSM parameter containing the AMI ID. If specified, this overrides the AMI filter
+- `id_ssm_parameter_arn`: ARN of an SSM parameter containing the AMI ID. If specified, this overrides both AMI filter and parameter name
+- `kms_key_arn`: Optional KMS key ARN if the AMI is encrypted with a customer managed key
+
+Defaults to null, in which case the module falls back to individual AMI variables (deprecated).
+EOT
+  type = object({
+    filter               = optional(map(list(string)), { state = ["available"] })
+    owners               = optional(list(string), ["amazon"])
+    id_ssm_parameter_arn = optional(string, null)
+    kms_key_arn          = optional(string, null)
+  })
+  default = null
+}
+
 variable "ami_filter" {
-  description = "Map of lists used to create the AMI filter for the action runner AMI."
+  description = "[DEPRECATED: Use ami.filter] Map of lists used to create the AMI filter for the action runner AMI."
   type        = map(list(string))
   default     = { state = ["available"] }
   validation {
     # check the availability of the AMI
     condition     = contains(keys(var.ami_filter), "state")
-    error_message = "The \"ami_filter\" variable must contain the \"state\" key with the value \"available\"."
+    error_message = "The AMI filter must contain the state filter."
   }
 }
 
 variable "ami_owners" {
-  description = "The list of owners used to select the AMI of action runner instances."
+  description = "[DEPRECATED: Use ami.owners] The list of owners that should be used to find the AMI."
   type        = list(string)
   default     = ["amazon"]
 }
 
 variable "ami_id_ssm_parameter_name" {
-  description = "Externally managed SSM parameter (of data type aws:ec2:image) that contains the AMI ID to launch runner instances from. Overrides ami_filter"
+  description = "[DEPRECATED: Use ami.id_ssm_parameter_name] String used to construct the SSM parameter name used to resolve the latest AMI ID for the runner instances. The SSM parameter should be of type String and contain a valid AMI ID. The default behavior is to use the latest Ubuntu 22.04 AMI."
   type        = string
   default     = null
 }
 
 variable "ami_kms_key_arn" {
-  description = "Optional CMK Key ARN to be used to launch an instance from a shared encrypted AMI"
+  description = "[DEPRECATED: Use ami.kms_key_arn] Optional CMK Key ARN to be used to launch an instance from a shared encrypted AMI"
   type        = string
   default     = null
 }
@@ -443,7 +504,7 @@ variable "runner_log_files" {
 }
 
 variable "ghes_url" {
-  description = "GitHub Enterprise Server URL. Example: https://github.internal.co - DO NOT SET IF USING PUBLIC GITHUB"
+  description = "GitHub Enterprise Server URL. Example: https://github.internal.co - DO NOT SET IF USING PUBLIC GITHUB. However if you are using Github Enterprise Cloud with data-residency (ghe.com), set the endpoint here. Example - https://companyname.ghe.com "
   type        = string
   default     = null
 }
@@ -640,12 +701,6 @@ variable "lambda_principals" {
   default = []
 }
 
-variable "enable_fifo_build_queue" {
-  description = "Enable a FIFO queue to keep the order of events received by the webhook. Recommended for repo level runners."
-  type        = bool
-  default     = false
-}
-
 variable "redrive_build_queue" {
   description = "Set options to attach (optional) a dead letter queue to the build queue, the queue between the webhook and the scale up lambda. You have the following options. 1. Disable by setting `enabled` to false. 2. Enable by setting `enabled` to `true`, `maxReceiveCount` to a number of max retries."
   type = object({
@@ -721,7 +776,7 @@ variable "disable_runner_autoupdate" {
 variable "lambda_runtime" {
   description = "AWS Lambda runtime."
   type        = string
-  default     = "nodejs20.x"
+  default     = "nodejs22.x"
 }
 
 variable "lambda_architecture" {
@@ -882,8 +937,7 @@ variable "instance_termination_watcher" {
   EOF
 
   type = object({
-    enable        = optional(bool, false)
-    enable_metric = optional(string, null) # deprectaed
+    enable = optional(bool, false)
     features = optional(object({
       enable_spot_termination_handler              = optional(bool, true)
       enable_spot_termination_notification_watcher = optional(bool, true)
@@ -896,10 +950,6 @@ variable "instance_termination_watcher" {
   })
   default = {}
 
-  validation {
-    condition     = var.instance_termination_watcher.enable_metric == null
-    error_message = "The variable `instance_termination_watcher.enable_metric` is deprecated, use `metrics` instead."
-  }
 }
 
 variable "runners_ebs_optimized" {
@@ -945,9 +995,15 @@ variable "eventbridge" {
     `accept_events`: List can be used to only allow specific events to be putted on the EventBridge. By default all events, empty list will be be interpreted as all events.
 EOF
   type = object({
-    enable        = optional(bool, false)
+    enable        = optional(bool, true)
     accept_events = optional(list(string), null)
   })
 
   default = {}
+}
+
+variable "user_agent" {
+  description = "User agent used for API calls by lambda functions."
+  type        = string
+  default     = "github-aws-runners"
 }

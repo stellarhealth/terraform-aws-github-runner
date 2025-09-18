@@ -4,8 +4,9 @@ locals {
   })
 
   github_app_parameters = {
-    id         = module.ssm.parameters.github_app_id
-    key_base64 = module.ssm.parameters.github_app_key_base64
+    id             = coalesce(var.github_app.id_ssm, module.ssm.parameters.github_app_id)
+    key_base64     = coalesce(var.github_app.key_base64_ssm, module.ssm.parameters.github_app_key_base64)
+    webhook_secret = coalesce(var.github_app.webhook_secret_ssm, module.ssm.parameters.github_app_webhook_secret)
   }
 
   default_runner_labels = distinct(concat(["self-hosted", var.runner_os, var.runner_architecture]))
@@ -53,13 +54,11 @@ resource "aws_sqs_queue_policy" "build_queue_policy" {
 }
 
 resource "aws_sqs_queue" "queued_builds" {
-  name                        = "${var.prefix}-queued-builds${var.enable_fifo_build_queue ? ".fifo" : ""}"
-  delay_seconds               = var.delay_webhook_event
-  visibility_timeout_seconds  = var.runners_scale_up_lambda_timeout
-  message_retention_seconds   = var.job_queue_retention_in_seconds
-  fifo_queue                  = var.enable_fifo_build_queue
-  receive_wait_time_seconds   = 0
-  content_based_deduplication = var.enable_fifo_build_queue
+  name                       = "${var.prefix}-queued-builds"
+  delay_seconds              = var.delay_webhook_event
+  visibility_timeout_seconds = var.runners_scale_up_lambda_timeout
+  message_retention_seconds  = var.job_queue_retention_in_seconds
+  receive_wait_time_seconds  = 0
   redrive_policy = var.redrive_build_queue.enabled ? jsonencode({
     deadLetterTargetArn = aws_sqs_queue.queued_builds_dlq[0].arn,
     maxReceiveCount     = var.redrive_build_queue.maxReceiveCount
@@ -80,18 +79,16 @@ resource "aws_sqs_queue_policy" "build_queue_dlq_policy" {
 
 resource "aws_sqs_queue" "queued_builds_dlq" {
   count = var.redrive_build_queue.enabled ? 1 : 0
-  name  = "${var.prefix}-queued-builds_dead_letter${var.enable_fifo_build_queue ? ".fifo" : ""}"
+  name  = "${var.prefix}-queued-builds_dead_letter"
 
   sqs_managed_sse_enabled           = var.queue_encryption.sqs_managed_sse_enabled
   kms_master_key_id                 = var.queue_encryption.kms_master_key_id
   kms_data_key_reuse_period_seconds = var.queue_encryption.kms_data_key_reuse_period_seconds
-  fifo_queue                        = var.enable_fifo_build_queue
   tags                              = var.tags
 }
 
 module "ssm" {
-  source = "./modules/ssm"
-
+  source      = "./modules/ssm"
   kms_key_arn = var.kms_key_arn
   path_prefix = "${local.ssm_root_path}/${var.ssm_paths.app}"
   github_app  = var.github_app
@@ -114,7 +111,6 @@ module "webhook" {
     (aws_sqs_queue.queued_builds.id) = {
       id : aws_sqs_queue.queued_builds.id
       arn : aws_sqs_queue.queued_builds.arn
-      fifo : var.enable_fifo_build_queue
       matcherConfig : {
         labelMatchers : [local.runner_labels]
         exactMatch : var.enable_runner_workflow_job_labels_check_all
@@ -124,7 +120,7 @@ module "webhook" {
   matcher_config_parameter_store_tier = var.matcher_config_parameter_store_tier
 
   github_app_parameters = {
-    webhook_secret = module.ssm.parameters.github_app_webhook_secret
+    webhook_secret = local.github_app_parameters.webhook_secret
   }
 
   lambda_s3_bucket                              = var.lambda_s3_bucket
@@ -182,6 +178,7 @@ module "runners" {
   block_device_mappings         = var.block_device_mappings
 
   runner_architecture       = var.runner_architecture
+  ami                       = var.ami
   ami_filter                = var.ami_filter
   ami_owners                = var.ami_owners
   ami_id_ssm_parameter_name = var.ami_id_ssm_parameter_name
@@ -219,7 +216,7 @@ module "runners" {
   lambda_runtime                   = var.lambda_runtime
   lambda_architecture              = var.lambda_architecture
   lambda_zip                       = var.runners_lambda_zip
-  lambda_scale_up_memory_size      = coalesce(var.runners_scale_up_Lambda_memory_size, var.runners_scale_up_lambda_memory_size)
+  lambda_scale_up_memory_size      = var.runners_scale_up_lambda_memory_size
   lambda_scale_down_memory_size    = var.runners_scale_down_lambda_memory_size
   lambda_timeout_scale_up          = var.runners_scale_up_lambda_timeout
   lambda_timeout_scale_down        = var.runners_scale_down_lambda_timeout
@@ -249,6 +246,8 @@ module "runners" {
   userdata_content               = var.userdata_content
   userdata_pre_install           = var.userdata_pre_install
   userdata_post_install          = var.userdata_post_install
+  runner_hook_job_started        = var.runner_hook_job_started
+  runner_hook_job_completed      = var.runner_hook_job_completed
   key_name                       = var.key_name
   runner_ec2_tags                = var.runner_ec2_tags
 
@@ -258,6 +257,7 @@ module "runners" {
 
   ghes_url        = var.ghes_url
   ghes_ssl_verify = var.ghes_ssl_verify
+  user_agent      = var.user_agent
 
   kms_key_arn = var.kms_key_arn
 

@@ -1,7 +1,8 @@
 resource "aws_cloudwatch_event_rule" "workflow_job" {
   name           = "${var.config.prefix}-workflow_job"
-  description    = "Workflow job event ruule for job queued."
+  description    = "Workflow job event rule for job queued."
   event_bus_name = aws_cloudwatch_event_bus.main.name
+  tags           = var.config.tags
 
   event_pattern = <<EOF
 {
@@ -84,7 +85,7 @@ resource "aws_lambda_permission" "allow_cloudwatch_to_call_lambda" {
 }
 
 resource "aws_iam_role" "dispatcher_lambda" {
-  name                 = "${var.config.prefix}-dispatcher-lambda-role"
+  name                 = "${substr("${var.config.prefix}-dispatcher-lambda", 0, 54)}-${substr(md5("${var.config.prefix}-dispatcher-lambda"), 0, 8)}"
   assume_role_policy   = data.aws_iam_policy_document.lambda_assume_role_policy.json
   path                 = var.config.role_path
   permissions_boundary = var.config.role_permissions_boundary
@@ -116,7 +117,7 @@ resource "aws_iam_role_policy" "dispatcher_sqs" {
 
 resource "aws_iam_role_policy" "dispatcher_kms" {
   name = "kms-policy"
-  role = aws_iam_role.webhook_lambda.name
+  role = aws_iam_role.dispatcher_lambda.name
 
   policy = templatefile("${path.module}/../policies/lambda-kms.json", {
     kms_key_arn = var.config.kms_key_arn != null ? var.config.kms_key_arn : "arn:${var.config.aws_partition}:kms:::CMK_NOT_IN_USE"
