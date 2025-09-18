@@ -37,5 +37,6 @@ resource "aws_ssm_parameter" "token_path" {
   name  = "${var.ssm_paths.root}/${var.ssm_paths.config}/token_path"
   type  = "String"
   value = "${var.ssm_paths.root}/${var.ssm_paths.tokens}"
+  tier  = "Advanced"
   tags  = local.tags
 }
